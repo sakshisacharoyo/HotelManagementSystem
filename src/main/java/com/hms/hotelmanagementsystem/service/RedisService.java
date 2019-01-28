@@ -53,17 +53,35 @@ public class RedisService {
         return bookingCounts;
     }
 
-    public  void hmset(String key , Map<Integer,ArrayList<Pair>> trendingHotels) {
+    public  void hmset(String key , Map<Integer,ArrayList<Pair>> trendingHotels , int ttlSeconds) {
+
+        if (CollectionUtils.isEmpty(trendingHotels))
+            return;
 
         try  {
             Gson gson = new Gson();
+
             redisconnection.sync().hmset(key, trendingHotels.entrySet().stream()
                     .filter(e -> Objects.nonNull(e.getValue()))
                     .collect(Collectors.toMap(e -> e.getKey().toString(), e -> gson.toJson(e.getValue()))));
         } catch (Exception e) {
             System.out.println("Redis hmset failed for key {}, exception: {}" +  e);
         }
+        if (ttlSeconds > 0) {
+            setKeyExpiry(key, ttlSeconds);
+        }
 
+
+    }
+
+    public void setKeyExpiry(String key, int ttlSeconds) {
+        try  {
+            if (ttlSeconds > 0) {
+                redisconnection.async().expire(key, ttlSeconds);
+            }
+        } catch (Exception e) {
+            System.out.println(" Exception in redis expiry command for key {}, exception: {} " + e);
+        }
     }
 
     public   Map<Integer,ArrayList<Pair>> hmget(String key, String[] hashFields) {

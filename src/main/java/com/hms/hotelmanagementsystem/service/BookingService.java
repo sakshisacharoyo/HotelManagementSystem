@@ -3,6 +3,7 @@ package com.hms.hotelmanagementsystem.service;
 import com.hms.hotelmanagementsystem.entities.Booking;
 import com.hms.hotelmanagementsystem.entities.Hotel;
 import com.hms.hotelmanagementsystem.entities.RoomAvailability;
+import com.hms.hotelmanagementsystem.entities.User;
 import com.hms.hotelmanagementsystem.utilities.JestConnectivity;
 import com.hms.hotelmanagementsystem.utilities.Pair;
 import io.searchbox.client.JestClient;
@@ -34,11 +35,36 @@ public class BookingService {
     CityService cityService;
 
     @Autowired
+    UserService userService;
+
+    @Autowired
     JestConnectivity jestConnector;
 
     @Qualifier("jestClient")
     @Autowired
     JestClient client;
+
+
+
+
+    public List<Booking> getAllBookings(){
+
+        List<Booking> bookingList = new ArrayList<Booking>();
+        try{
+
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            QueryBuilder matchQuery = QueryBuilders.matchAllQuery();
+            searchSourceBuilder.query(matchQuery);
+            Search search = new Search.Builder(searchSourceBuilder.size(1000).toString()).addIndex("booking").addType("doc").build();
+            SearchResult result = client.execute(search);
+            bookingList = result.getSourceAsObjectList(Booking.class,false);
+
+        }catch(IOException ex){
+            System.out.println("Exception in getting all bookings" + ex);
+        }
+        return bookingList;
+    }
+
 
 
     public Boolean checkRoomAvailability(Integer hotelId, String checkInDate, String checkOutDate) {
@@ -52,12 +78,17 @@ public class BookingService {
 
 
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
                 QueryBuilder matchQuery = QueryBuilders.boolQuery()
                         .must(QueryBuilders.matchQuery("hotelId", hotelId))
                         .must(QueryBuilders.matchQuery("date", date));
+
                 searchSourceBuilder.query(matchQuery);
+
                 Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("roomavailability").addType("doc").build();
+
                 SearchResult result = client.execute(search);
+
                 RoomAvailability roomAvailability = result.getSourceAsObject(RoomAvailability.class, false);
                 if (roomAvailability != null) {
                     Integer availableRooms = roomAvailability.getAvailableRooms();
@@ -81,15 +112,47 @@ public class BookingService {
 
 
 
-            Index index = new Index.Builder(roomAvailability).index("roomavailability").type("doc").build();
+            Index index = new Index.Builder(roomAvailability).index("roomavailability").type("doc").id(roomAvailability.getHotelId().toString() + roomAvailability.getDate().toString()).build();
             client.execute(index);
-            res = "Room availability updated successfully !!  ";
+            res = "Room availability added successfully !!  ";
         } catch (IOException ex) {
             System.out.println(" Error in adding room availability " + ex);
         }
         return res;
 
     }
+
+
+
+    public void updateRoomAvailabilityOnHotelUpdate(Integer hotelId , Integer difference){
+
+
+
+        List<RoomAvailability> dateWiseAvailability = new ArrayList<RoomAvailability>();
+        try{
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            QueryBuilder matchquery = QueryBuilders.matchQuery("hotelId",hotelId);
+            searchSourceBuilder.query(matchquery);
+            Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("roomavailability").addType("doc").build();
+            SearchResult result = client.execute(search);
+            dateWiseAvailability =  result.getSourceAsObjectList(RoomAvailability.class, false);
+
+            for(int i = 0; i<dateWiseAvailability.size();i++){
+
+                RoomAvailability roomAvailability = dateWiseAvailability.get(i);
+                int value = roomAvailability.getAvailableRooms();
+                value += difference;
+                roomAvailability.setAvailableRooms(value);
+                if(value<0)
+                    roomAvailability.setAvailableRooms(0);
+                addRoomAvailability(roomAvailability);
+            }
+
+        }catch(IOException ex){
+            System.out.println("Exception in room update on hotel update" + ex);
+        }
+    }
+
 
     public String updateRoomAvailability(Integer hotelId, String checkInDate, String checkOutDate) {
 
@@ -103,12 +166,17 @@ public class BookingService {
 
 
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
                 QueryBuilder matchQuery = QueryBuilders.boolQuery()
                         .must(QueryBuilders.matchQuery("hotelId", hotelId))
                         .must(QueryBuilders.matchQuery("date", date));
+
                 searchSourceBuilder.query(matchQuery);
+
                 Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("roomavailability").addType("doc").build();
+
                 SearchResult result = client.execute(search);
+
                 RoomAvailability roomAvailability = result.getSourceAsObject(RoomAvailability.class, false);
                 if (roomAvailability != null) {
                     int value = roomAvailability.getAvailableRooms();
@@ -118,10 +186,11 @@ public class BookingService {
                 } else {
 
                     RoomAvailability roomAvailability1 = new RoomAvailability();
+
                     roomAvailability1.setHotelId(hotelId);
                     roomAvailability1.setAvailableRooms(hotel.getAvailableRooms() - 1);
                     roomAvailability1.setDate(date.toString());
-                    roomAvailability1.setId(hotelId.toString() + date.toString());
+
                     res = addRoomAvailability(roomAvailability1);
                 }
 
@@ -133,35 +202,42 @@ public class BookingService {
         return res;
     }
 
-    public String addBooking(Booking booking) {
+     public String addBooking(Booking booking) {
 
         String res = "";
-        try {
+
+            try {
+
+                Index index = new Index.Builder(booking).index("booking").type("doc").build();
+                client.execute(index);
+                res = " Room booked successfully !!  ";
+                res = booking.getBookingId();
+
+            } catch (IOException ex) {
+                System.out.println("Error in booking " + ex);
+            }
 
 
-            Index index = new Index.Builder(booking).index("booking").type("doc").build();
-            client.execute(index);
-            res = " Room booked successfully !!  ";
-            res = booking.getBookingId();
-        } catch (IOException ex) {
-            System.out.println("Error in booking " + ex);
-        }
 
         return res;
 
     }
 
-    public Booking getBookingById(String bookingId) {
+     public Booking getBookingById(String bookingId) {
 
         Booking booking = new Booking();
         try {
 
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
             searchSourceBuilder.query(QueryBuilders.matchQuery("bookingId", bookingId));
             Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("booking").addType("doc").build();
+
             SearchResult result = client.execute(search);
+
             booking = result.getSourceAsObject(Booking.class, false);
+
         } catch (IOException ex) {
             System.out.println("  exception in fetching booking " + ex);
         }
@@ -194,13 +270,17 @@ public class BookingService {
 
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
             QueryBuilder startQuery = QueryBuilders.rangeQuery("checkInDate").lte(date);
             QueryBuilder endQuery = QueryBuilders.rangeQuery("checkOutDate").gt(date);
             QueryBuilder checkQuery = QueryBuilders.matchQuery("bookingStatus", Booking.Status.Active);
             QueryBuilder matchQuery = QueryBuilders.boolQuery().must(startQuery).must(endQuery).must(checkQuery);
+
             searchSourceBuilder.query(matchQuery);
+
             Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("booking").addType("doc").build();
             SearchResult result = client.execute(search);
+
             bookings = result.getSourceAsObjectList(Booking.class, false);
 
         } catch (IOException ex) {
@@ -216,14 +296,18 @@ public class BookingService {
 
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
             QueryBuilder startQuery = QueryBuilders.rangeQuery("checkInDate").lte(date);
             QueryBuilder endQuery = QueryBuilders.rangeQuery("checkOutDate").gt(date);
             QueryBuilder statusQuery = QueryBuilders.matchQuery("bookingStatus", Booking.Status.Active);
             QueryBuilder hotelQuery = QueryBuilders.matchQuery("hotelId", hotelId);
             QueryBuilder matchQuery = QueryBuilders.boolQuery().must(startQuery).must(endQuery).must(statusQuery).must(hotelQuery);
+
             searchSourceBuilder.query(matchQuery);
+
             Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("booking").addType("doc").build();
             SearchResult result = client.execute(search);
+
             bookings = result.getSourceAsObjectList(Booking.class, false);
 
 
@@ -238,17 +322,19 @@ public class BookingService {
         List<Booking> bookings = new ArrayList<Booking>();
         try {
 
-
-
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
             QueryBuilder startQuery = QueryBuilders.rangeQuery("checkInDate").lte(date);
             QueryBuilder endQuery = QueryBuilders.rangeQuery("checkOutDate").gt(date);
             QueryBuilder statusQuery = QueryBuilders.matchQuery("bookingStatus", Booking.Status.Active);
             QueryBuilder hotelQuery = QueryBuilders.matchQuery("userId", userId);
             QueryBuilder matchQuery = QueryBuilders.boolQuery().must(startQuery).must(endQuery).must(statusQuery).must(hotelQuery);
+
             searchSourceBuilder.query(matchQuery);
+
             Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("booking").addType("doc").build();
             SearchResult result = client.execute(search);
+
             bookings = result.getSourceAsObjectList(Booking.class, false);
 
         } catch (IOException ex) {
@@ -265,12 +351,17 @@ public class BookingService {
 
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
             QueryBuilder matchQuery = QueryBuilders.boolQuery()
                     .must(QueryBuilders.matchQuery("hotelId", hotelId))
                     .must(QueryBuilders.matchQuery("date", date));
+
             searchSourceBuilder.query(matchQuery);
+
             Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("roomavailability").addType("doc").build();
+
             SearchResult result = client.execute(search);
+
             availability = result.getSourceAsObject(RoomAvailability.class, false);
 
 
@@ -281,8 +372,12 @@ public class BookingService {
             return availability.getAvailableRooms();
         }
         else{
+
             Hotel hotel = hotelService.getHotelById(hotelId);
-            availablerooms = hotel.getAvailableRooms();
+            if(hotel != null){
+                availablerooms = hotel.getAvailableRooms();
+            }
+
             return availablerooms;
         }
     }
@@ -290,19 +385,27 @@ public class BookingService {
     public String updateRoomAvailabilityOnCancellation(Booking booking) {
 
         String res = "";
+
         LocalDate checkIn = LocalDate.parse(booking.getCheckInDate());
         LocalDate checkOut = LocalDate.parse(booking.getCheckOutDate());
+
         for (LocalDate date = checkIn; date.isBefore(checkOut); date = date.plusDays(1)) {
             try {
 
 
+
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
                 QueryBuilder matchQuery = QueryBuilders.boolQuery()
                         .must(QueryBuilders.matchQuery("hotelId", booking.getHotelId()))
                         .must(QueryBuilders.matchQuery("date", date));
+
+
                 searchSourceBuilder.query(matchQuery);
                 Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("roomavailability").addType("doc").build();
+
                 SearchResult result = client.execute(search);
+
                 RoomAvailability roomAvailability = result.getSourceAsObject(RoomAvailability.class, false);
                 int value = roomAvailability.getAvailableRooms();
                 value++;
@@ -326,13 +429,18 @@ public class BookingService {
 
 
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
                 QueryBuilder statusQuery = QueryBuilders.matchQuery("bookingStatus", Booking.Status.Active);
                 QueryBuilder hotelQuery = QueryBuilders.matchQuery("hotelId", hotelId);
                 QueryBuilder dateQuery = QueryBuilders.matchQuery("dateOfBooking", dateOfBooking);
                 QueryBuilder matchQuery = QueryBuilders.boolQuery().must(statusQuery).must(hotelQuery).must(dateQuery);
+
                 searchSourceBuilder.query(matchQuery);
+
                 Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("booking").addType("doc").build();
+
                 SearchResult result = client.execute(search);
+
                 bookings = result.getSourceAsObjectList(Booking.class, false);
 
 
@@ -344,67 +452,57 @@ public class BookingService {
     }
 
 
-   public Map<Integer, ArrayList<com.hms.hotelmanagementsystem.utilities.Pair>> getTrendingHotels(){
+     public Map<Integer, ArrayList<com.hms.hotelmanagementsystem.utilities.Pair>> getTrendingHotels(){
 
-        List<Hotel> hotels = hotelService.getAllHotelIds();
-
+        List<Hotel> hotels = hotelService.getAllHotels();
         LocalDate currentDate = LocalDate.now();
         String dateOfBooking = currentDate.toString();
+
         Map<Integer, ArrayList<com.hms.hotelmanagementsystem.utilities.Pair>> trendingHotels = new HashMap <Integer, ArrayList<com.hms.hotelmanagementsystem.utilities.Pair>>();
 
         for(int i = 0;i<hotels.size();i++){
-            int hotelId = hotels.get(i).getHotelId();
-            Integer count = getAllBookingsByHotelIdAndDateOfBooking(hotelId,dateOfBooking);
-            Integer cityId = hotels.get(i).getCityId();
-            com.hms.hotelmanagementsystem.utilities.Pair hotelCount = new com.hms.hotelmanagementsystem.utilities.Pair(count,hotelId);
-            ArrayList <com.hms.hotelmanagementsystem.utilities.Pair> countpair ;
 
-            if(trendingHotels.containsKey(cityId)){
+            if(hotels.get(i).getCityId() != null){
+
+                int hotelId = hotels.get(i).getHotelId();
+                Integer count = getAllBookingsByHotelIdAndDateOfBooking(hotelId,dateOfBooking);
+                Integer cityId = hotels.get(i).getCityId();
+                com.hms.hotelmanagementsystem.utilities.Pair hotelCount = new com.hms.hotelmanagementsystem.utilities.Pair(count,hotelId);
+                ArrayList <com.hms.hotelmanagementsystem.utilities.Pair> countpair ;
+
+                if(trendingHotels.containsKey(cityId)){
 
 
-                 countpair = trendingHotels.get(cityId);
+                    countpair = trendingHotels.get(cityId);
 
 
-            }else{
+                }else{
 
-                countpair = new ArrayList<com.hms.hotelmanagementsystem.utilities.Pair>();
-
-            }
-
-            countpair.add(hotelCount);
-
-            Collections.sort(countpair,  new Comparator<com.hms.hotelmanagementsystem.utilities.Pair>() {
-                @Override
-                public int compare(com.hms.hotelmanagementsystem.utilities.Pair o1, com.hms.hotelmanagementsystem.utilities.Pair o2) {
-
-                    return o2.first.compareTo(o1.first);
+                    countpair = new ArrayList<com.hms.hotelmanagementsystem.utilities.Pair>();
 
                 }
-            });
-            if(countpair.size()>=5){
 
-                countpair.remove(countpair.size()-1);
+                countpair.add(hotelCount);
+
+                Collections.sort(countpair,  new Comparator<com.hms.hotelmanagementsystem.utilities.Pair>() {
+                    @Override
+                    public int compare(com.hms.hotelmanagementsystem.utilities.Pair o1, com.hms.hotelmanagementsystem.utilities.Pair o2) {
+
+                        return o2.bookingCount.compareTo(o1.bookingCount);
+
+                    }
+                });
+                if(countpair.size()>=5){
+
+                    countpair.remove(countpair.size()-1);
+
+                }
+
+                trendingHotels.put(cityId,countpair);
 
             }
 
-            trendingHotels.put(cityId,countpair);
-
         }
-
-       Iterator< Map.Entry<Integer, ArrayList<com.hms.hotelmanagementsystem.utilities.Pair>>> itr = trendingHotels.entrySet().iterator();
-
-       while(itr.hasNext())
-       {
-           Map.Entry<Integer, ArrayList<com.hms.hotelmanagementsystem.utilities.Pair>> entry = itr.next();
-           ArrayList<com.hms.hotelmanagementsystem.utilities.Pair> values = entry.getValue();
-           Iterator<com.hms.hotelmanagementsystem.utilities.Pair> itr2 = values.iterator();
-
-           while (itr2.hasNext()) {
-
-               com.hms.hotelmanagementsystem.utilities.Pair p = itr2.next();
-           }
-
-       }
 
        return trendingHotels;
     }
@@ -423,12 +521,6 @@ public class BookingService {
 
 
     public Map<Integer, ArrayList<Pair>>  getAllTrendingHotelsFromCache(){
-
-        Map<Integer, ArrayList<Pair> > mp = getTrendingHotels();
-        redisService.hmset("trends" , mp);
-        List<String> fields = cityService.getAllCityIds();
-        Object[] objArr = fields.toArray();
-        String[] hashfields = Arrays.copyOf(objArr, objArr.length, String[].class);
 
         return redisService.hgetall("trends");
     }

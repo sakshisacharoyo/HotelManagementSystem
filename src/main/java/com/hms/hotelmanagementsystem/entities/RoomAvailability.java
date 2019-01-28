@@ -12,16 +12,7 @@ public class RoomAvailability {
     private Integer availableRooms;
     private String date;
 
-    @JestId
-    private String id;
 
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
     public Integer getHotelId() {
         return hotelId;
     }

@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class StateService {
@@ -58,4 +60,20 @@ public class StateService {
         }
         return state;
     }
+
+    public List<State> getAllStates(){
+        List<State> states = new ArrayList<State>();
+        try{
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+            Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("state").addType("doc").build();
+            SearchResult result = client.execute(search);
+            states = result.getSourceAsObjectList(State.class,false);
+        }catch(IOException ex){
+            System.out.println("Exception in searching all states " +ex);
+        }
+        return states;
+    }
+
+
 }

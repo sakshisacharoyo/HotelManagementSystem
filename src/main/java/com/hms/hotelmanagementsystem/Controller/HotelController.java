@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 public class HotelController {
@@ -18,14 +19,16 @@ public class HotelController {
     @Autowired
     private HotelService hotelService;
 
+    @Autowired
+    private BookingService bookingService;
 
     @RequestMapping(value = "/createHotel", method = RequestMethod.POST)
-    public void addHotel(@RequestBody Hotel hotel){
-        hotelService.createHotel(hotel);
+    public String addHotel(@RequestBody Hotel hotel){
+        return hotelService.createHotel(hotel);
     }
 
     @RequestMapping(value = "/getHotelByIds" , method =  RequestMethod.GET)
-    public List<Hotel> searchHotel(@RequestParam("hotelIds")List<Integer> hotelIds){
+    public List<Hotel> searchHotel(@RequestParam("hotelIds") Set<Integer> hotelIds){
        List<Hotel> searchedHotels =  hotelService.searchHotel(hotelIds);
         return searchedHotels;
     }
@@ -54,14 +57,36 @@ public class HotelController {
         return searchedHotels;
     }
 
-    @RequestMapping(value = "/deleteHotel" , method = RequestMethod.GET)
-    public void deleteHotelById(@RequestParam("hotelId") int hotelId){
-        hotelService.deleteByHotelId(hotelId);
+    @RequestMapping(value = "/searchByStateId" , method = RequestMethod.GET)
+    public List<Hotel> searchByStateId(@RequestParam("stateId") Integer stateId){
+        List<Hotel> searchedHotels = hotelService.searchByStateId(stateId);
+        return searchedHotels;
     }
 
+    @RequestMapping(value = "/searchByCityId" , method = RequestMethod.GET)
+    public List<Hotel> searchByCityId(@RequestParam("cityId") Integer stateId){
+        List<Hotel> searchedHotels = hotelService.searchByCityId(stateId);
+        return searchedHotels;
+    }
+
+    @RequestMapping(value = "/deleteHotel" , method = RequestMethod.POST)
+    public String deleteHotelById(@RequestParam("hotelId") int hotelId){
+       return  hotelService.deleteByHotelId(hotelId);
+    }
+
+
     @RequestMapping(value = "/updateHotel" , method = RequestMethod.POST)
-    public void updateHotelById(@RequestBody Hotel hotel) {
-        hotelService.updateHotel(hotel);
+    public String updateHotelById(@RequestBody Hotel hotel , @RequestParam("hotelId") Integer hotelId ) {
+        hotel.setHotelId(hotelId);
+        Hotel oldhotel = hotelService.getHotelById(hotelId);
+
+            if(oldhotel != null && oldhotel.getAvailableRooms() != null && hotel.getAvailableRooms()!=null){
+
+            int diff = hotel.getAvailableRooms() - oldhotel.getAvailableRooms();
+            bookingService.updateRoomAvailabilityOnHotelUpdate(hotelId , diff);
+        }
+
+        return hotelService.updateHotel(hotel);
     }
 
     @RequestMapping(value = "/getHotelByHotelName" , method = RequestMethod.GET)
@@ -69,5 +94,7 @@ public class HotelController {
         List<Hotel> hotels = hotelService.getHotelByName(hotelName);
         return hotels;
     }
+
+
 
 }

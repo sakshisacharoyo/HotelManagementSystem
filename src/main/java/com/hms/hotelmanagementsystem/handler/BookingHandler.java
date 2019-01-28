@@ -25,38 +25,45 @@ public class BookingHandler {
     BookingService bookingService;
 
 
+    @Autowired
+    UserService userService;
+
 
     public String addBooking(Booking booking) {
+
 
         String res = "";
         Hotel hotel = new Hotel();
         hotel = hotelService.getHotelById(booking.getHotelId());
-
+        Integer userId = booking.getUserId();
+        User user = userService.getUserById(userId);
         if (hotel != null) {
-            Boolean availability = bookingService.checkRoomAvailability(booking.getHotelId(),booking.getCheckInDate(),booking.getCheckOutDate());
-            if(hotel.getAvailableRooms() != null && hotel.getPrice() != null){
-                if (hotel.getAvailableRooms() > 0 && availability) {
 
-                    bookingService.updateRoomAvailability(booking.getHotelId(),booking.getCheckInDate(),booking.getCheckOutDate());
+            if(user != null){
+                Boolean availability = bookingService.checkRoomAvailability(booking.getHotelId(),booking.getCheckInDate(),booking.getCheckOutDate());
+                if(hotel.getAvailableRooms() != null && hotel.getPrice() != null){
+                    if (hotel.getAvailableRooms() > 0 && availability) {
 
-                    int price = hotel.getPrice();
-                    LocalDate checkIn = LocalDate.parse(booking.getCheckInDate());
-                    LocalDate checkOut = LocalDate.parse(booking.getCheckOutDate());
-                    long noOfDaysBetween = ChronoUnit.DAYS.between(checkIn, checkOut);
-                    Double amount = new Double(price * noOfDaysBetween);
-                    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-                    LocalDateTime now = LocalDateTime.now();
-                    String bookingId = "oyo_" + dtf.format(now) + booking.getUserId().toString();
-                    booking.setBookingId(bookingId);
-                    booking.setAmount(amount);
-                    booking.setBookingStatus(Booking.Status.Active);
+                        bookingService.updateRoomAvailability(booking.getHotelId(),booking.getCheckInDate(),booking.getCheckOutDate());
 
-                    LocalDate currentDate = LocalDate.now();
-                    booking.setDateOfBooking(currentDate.toString());
+                        int price = hotel.getPrice();
+                        LocalDate checkIn = LocalDate.parse(booking.getCheckInDate());
+                        LocalDate checkOut = LocalDate.parse(booking.getCheckOutDate());
+                        long noOfDaysBetween = ChronoUnit.DAYS.between(checkIn, checkOut);
+                        Double amount = new Double(price * noOfDaysBetween);
+                        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+                        LocalDateTime now = LocalDateTime.now();
+                        String bookingId = "oyo_" + dtf.format(now) + booking.getUserId().toString();
+                        booking.setBookingId(bookingId);
+                        booking.setAmount(amount);
+                        booking.setBookingStatus(Booking.Status.Active);
 
-                    res = bookingService.addBooking(booking);
-                }
-                else{
+                        LocalDate currentDate = LocalDate.now();
+                        booking.setDateOfBooking(currentDate.toString());
+
+                        res = bookingService.addBooking(booking);
+                    }
+                    else{
                         return "No rooms Available in this hotel";
                     }
                 }
@@ -64,6 +71,10 @@ public class BookingHandler {
                     return "No rooms Available in this hotel";
                 }
             }else {
+                    res = "user does not exist !!";
+            }
+        }else  {
+
             res = "hotel not found !!";
         }
 

@@ -8,6 +8,7 @@ import com.hms.hotelmanagementsystem.utilities.JestConnectivity;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.searchbox.client.JestClient;
 import io.searchbox.core.*;
+import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -45,22 +46,27 @@ public class HotelService {
 
 
 
-    public void createHotel(Hotel h) {
+    public String createHotel(Hotel h) {
 
 
-        try {
+        if(h.getHotelId() != null){
+            try {
 
 
-            Index index = new Index.Builder(h).index("oyorooms").type("doc").build();
-            client.execute(index);
+                Index index = new Index.Builder(h).index("oyorooms").type("doc").build();
+                client.execute(index);
+                return "Hotel added successfully !!";
 
-        } catch (IOException ex) {
-            System.out.println("Exception  in creating new  hotel , hotelservice.createHotel failed" + ex);
+            } catch (IOException ex) {
+                return "Exception  in creating new  hotel , hotelservice.createHotel failed" + ex;
+            }
+        }else{
+            return "hotel id not found !!";
         }
 
     }
 
-    public List<Hotel> searchHotel(List<Integer> hotelIds) {
+    public List<Hotel> searchHotel(Set<Integer> hotelIds) {
 
         Hotel hotel = new Hotel();
         List<Hotel> hotels = new ArrayList<>();
@@ -168,7 +174,43 @@ public class HotelService {
         return hotels;
     }
 
-    public void deleteByHotelId(Integer hotelId) {
+    public List<Hotel> searchByStateId(Integer stateId){
+
+            List<Hotel> hotels = new ArrayList<>();
+
+        try{
+
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            searchSourceBuilder.query(QueryBuilders.matchQuery("stateId", stateId));
+            Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("oyorooms").addType("doc").build();
+            SearchResult result = client.execute(search);
+            hotels = result.getSourceAsObjectList(Hotel.class, false);
+
+        } catch(IOException ex){
+            System.out.println("Exception in hotel search by state Id " + ex);
+        }
+        return hotels;
+    }
+
+    public List<Hotel> searchByCityId(Integer cityId){
+
+        List<Hotel> hotels = new ArrayList<>();
+
+        try{
+
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            searchSourceBuilder.query(QueryBuilders.matchQuery("cityId", cityId));
+            Search search = new Search.Builder(searchSourceBuilder.toString()).addIndex("oyorooms").addType("doc").build();
+            SearchResult result = client.execute(search);
+            hotels = result.getSourceAsObjectList(Hotel.class, false);
+
+        } catch(IOException ex){
+            System.out.println("Exception in hotel search by state Id " + ex);
+        }
+        return hotels;
+    }
+
+    public String deleteByHotelId(Integer hotelId) {
 
         try {
 
@@ -176,9 +218,10 @@ public class HotelService {
             Delete delete = new Delete.Builder(Integer.toString(hotelId))
                     .index("oyorooms").type("doc").build();
             client.execute(delete);
+            return "hotel deleted successfully !!";
 
         } catch (IOException ex) {
-            System.out.println("Exception in hotel deletion in elastic search , hotelservice.deleteByhotelId failed " + ex);
+            return "Exception in hotel deletion in elastic search , hotelservice.deleteByhotelId failed " + ex;
         }
 
 
@@ -202,23 +245,36 @@ public class HotelService {
             return payload;
          }
 
-         public void updateHotel(Hotel hotel) {
-             Update updateAction = new Update.Builder(getUpdatePayload(hotel, false)).index("oyorooms").type("doc").id(Integer.toString(hotel.getHotelId()))
+         public String updateHotel(Hotel hotel) {
+
+                 String res = "";
+                 Update updateAction = new Update.Builder(getUpdatePayload(hotel, false)).index("oyorooms").type("doc").id(Integer.toString(hotel.getHotelId()))
                 .build();
+
           try {
 
-             client.execute(updateAction);
+              DocumentResult up =    client.execute(updateAction);
+
+              if(up.isSucceeded()){
+
+                  return "hotel updated successfully !!";
+              }
+              else{
+
+                  return "hotel not found !!";
+              }
+
            } catch (IOException e) {
 
-             System.out.println("Exception in update in hotel , hotelservice.getupdatebypayload failed" + e);
+            return "Exception in update in hotel , hotelservice.getupdatebypayload failed" ;
 
             }
+
        }
 
     public List<Hotel> getHotelByName(String name){
         List<Hotel> hotels = new ArrayList<Hotel>();
         try{
-
 
             SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
             QueryBuilder fuzzyquery = QueryBuilders.matchQuery("hotelName",name).fuzziness("AUTO");
@@ -237,7 +293,7 @@ public class HotelService {
     }
 
 
-    public List<Hotel> getAllHotelIds(){
+    public List<Hotel> getAllHotels(){
 
         List<Hotel> hotels = new ArrayList<Hotel>();
         try{
@@ -250,7 +306,9 @@ public class HotelService {
             hotels = result.getSourceAsObjectList(Hotel.class,false);
 
         }catch(IOException ex){
-            System.out.println(" Exception in fetching hotel ids , hotelService.getAllHotelids failed " + ex);
+
+            System.out.println(" Exception in fetching hotels  , hotelService.getAllHotels failed " + ex);
+
         }
         return hotels;
 

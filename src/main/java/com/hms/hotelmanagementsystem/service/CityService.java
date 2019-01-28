@@ -67,7 +67,7 @@ public class CityService {
     }
 
 
-    public List<String> getAllCityIds(){
+    public List<City> getAllCity(){
 
         List<City> cities = new ArrayList<City>();
 
@@ -81,12 +81,8 @@ public class CityService {
         }catch (IOException ex){
             System.out.println(" Exception in fetching all city ids , cityservice.getallcityids failed "  + ex);
         }
-        List<String> cityIds = new ArrayList<String>();
-        for(int i = 0 ; i<cities.size();i++){
-            String id = cities.get(i).getCityId().toString();
-            cityIds.add(id);
-        }
-        return cityIds;
+
+        return cities;
     }
 
 }

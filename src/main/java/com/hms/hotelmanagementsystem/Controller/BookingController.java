@@ -21,16 +21,30 @@ public class BookingController {
     @Autowired
     BookingHandler bookingHandler;
 
+
+
+    @RequestMapping(value = "/getAllBookings" , method =  RequestMethod.GET)
+    public List<Booking> getAllBookings(){
+
+        List<Booking> bookingList= bookingService.getAllBookings();
+        return  bookingList;
+    }
+
     @RequestMapping(value = "/addBooking" , method = RequestMethod.POST)
     public String bookRoom(@RequestBody Booking booking){
 
+        if(booking.getUserId() != null && booking.getCheckInDate() != null && booking.getCheckOutDate() != null && booking.getHotelId()!= null){
+            String res = bookingHandler.addBooking(booking);
+            System.out.println("booking result " + res);
+            return res;
+        }
+        else{
+            return "Incomplete information ";
+        }
 
-        String res = bookingHandler.addBooking(booking);
-        System.out.println("booking result " + res);
-        return res;
     }
 
-    @RequestMapping(value = "/cancelBooking" , method = RequestMethod.GET)
+    @RequestMapping(value = "/cancelBooking" , method = RequestMethod.POST)
     public String cancelBooking(@RequestParam("bookingId") String bookingId){
         String res = bookingHandler.cancelBooking(bookingId);
         return res;
@@ -66,18 +80,18 @@ public class BookingController {
         return  availability;
     }
 
-    @RequestMapping(value = "/getTrend" , method = RequestMethod.GET)
+    @RequestMapping(value = "/getTrendingHotelMap" , method = RequestMethod.GET)
     public Map<Integer, ArrayList<Pair>> gettrending(){
        return bookingService.getTrendingHotels();
     }
 
-    @RequestMapping(value = "/getTrendingHotelsById" , method = RequestMethod.GET)
+    @RequestMapping(value = "/getTrendingHotelsByCityId" , method = RequestMethod.GET)
     public Map<Integer,ArrayList<Pair>> gettrendingHotels(@RequestParam("cityId") Integer cityId){
         return bookingService.getAllTrendingHotelsByCityIdFromCache(cityId);
 
     }
 
-    @RequestMapping(value = "/checkTrendingHotels" , method = RequestMethod.GET)
+    @RequestMapping(value = "/getAllTrendingHotels" , method = RequestMethod.GET)
     public Map<Integer, ArrayList<Pair>>  check(){
         return bookingService.getAllTrendingHotelsFromCache();
     }

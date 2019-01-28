@@ -29,19 +29,9 @@ public class Jobs {
     public void updatetrendingHotelCache(){
 
 
-        System.out.println("job running");
-       Map<Integer, ArrayList<Pair>>  trendingHotels = bookingService.getTrendingHotels();
-
-        Iterator< Map.Entry<Integer, ArrayList<Pair>>> itr = trendingHotels.entrySet().iterator();
-
-        while(itr.hasNext())
-
-        {
-            Map.Entry<Integer, ArrayList<Pair>> entry = itr.next();
-            String key = entry.getKey().toString();
-            ArrayList<Pair> values = entry.getValue();
-            redisService.set(key,values);
-        }
+            System.out.println("job running");
+            Map<Integer, ArrayList<Pair>>  trendingHotels = bookingService.getTrendingHotels();
+            redisService.hmset("trends" , trendingHotels , 120);
 
     }
 

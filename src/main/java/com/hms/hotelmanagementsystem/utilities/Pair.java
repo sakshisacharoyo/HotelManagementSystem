@@ -5,12 +5,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Pair {
 
-    public Integer first,second;
+    public Integer bookingCount,hotelId;
 
     @JsonCreator
-    public Pair(@JsonProperty("first") Integer first, @JsonProperty("second") Integer second) {
-        this.first = first;
-        this.second = second;
+    public Pair(@JsonProperty("bookingCount") Integer first, @JsonProperty("hotelId") Integer second) {
+        this.bookingCount = first;
+        this.hotelId = second;
     }
 
 
